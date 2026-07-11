@@ -3,3 +3,4 @@ node_modules/
 .supermemory/
 *.tgz
 .claude/settings.local.json
+learning.md
