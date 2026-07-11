@@ -1,0 +1,34 @@
+{
+  "name": "agent-smith",
+  "version": "0.1.0",
+  "description": "A goal-fidelity watchdog for AI coding agents — remembers what you said you'd build, and calls you out when you quietly contradict yourself.",
+  "main": "index.js",
+  "bin": {
+    "smith": "./bin/smith.js"
+  },
+  "files": [
+    "bin",
+    "server",
+    "lib"
+  ],
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "claude-code",
+    "ai-agent",
+    "hooks",
+    "goal-tracking",
+    "supermemory"
+  ],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "supermemory": "^4.24.12"
+  }
+}

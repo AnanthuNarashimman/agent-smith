@@ -1,0 +1,28 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Edit|Write",
+        "hooks": [
+          {
+            "type": "http",
+            "url": "http://localhost:6789/analyze",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash|Edit|Write",
+        "hooks": [
+          {
+            "type": "http",
+            "url": "http://localhost:6789/analyze",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
