@@ -11,9 +11,11 @@ const {
 const { computeConsistencyScore } = require("../lib/consistency-score");
 const { readConfig, writeConfig, PROVIDERS } = require("../lib/config");
 const { ensureHooksConfigured } = require("../lib/hooks-setup");
-const { ensureServerRunning } = require("../lib/server-launcher");
+const { ensureServerRunning, stopServer } = require("../lib/server-launcher");
 const { ensureSkillConfigured } = require("../lib/skill-setup");
 const { buildScoreBanner } = require("../lib/status-banner");
+const { buildIntroBanner, pickNorthStarQuestion } = require("../lib/intro-banner");
+const { clearProjectMemories } = require("../lib/reset");
 
 async function requireSupermemory() {
   const reachable = await checkSupermemoryReachable();
@@ -85,7 +87,10 @@ async function init() {
     return;
   }
 
-  const goal = (await rl.question("\nWhat's the north star for this build? ")).trim();
+  console.log("\n" + buildIntroBanner());
+
+  const question = pickNorthStarQuestion();
+  const goal = (await rl.question(`\n${question}\n> `)).trim();
   rl.close();
 
   if (!goal) {
@@ -150,14 +155,47 @@ async function status() {
   }
 }
 
+async function off() {
+  const result = await stopServer();
+  console.log(result.stopped ? `Agent Smith server on port ${result.port} stopped.` : `No Agent Smith server was running on port ${result.port}.`);
+}
+
+async function reset() {
+  await requireSupermemory();
+
+  const containerTag = getContainerTag();
+  const client = getClient();
+
+  console.log(`containerTag: ${containerTag}`);
+  console.log("This will permanently delete the goal, decision log, and override log for this project.");
+
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  const answer = (await rl.question("Type the project name to confirm: ")).trim();
+  rl.close();
+
+  if (answer !== containerTag.replace(/^project-/, "")) {
+    console.log("Confirmation did not match, aborting. Nothing was deleted.");
+    process.exitCode = 1;
+    return;
+  }
+
+  console.log("Deleting...");
+  const { deletedCount } = await clearProjectMemories(client, containerTag);
+  console.log(`Deleted ${deletedCount} document(s). This project is now a clean slate — run \`smith init\` to set a new goal.`);
+}
+
 async function main() {
   const command = process.argv[2];
   if (command === "init") {
     await init();
   } else if (command === "status") {
     await status();
+  } else if (command === "off") {
+    await off();
+  } else if (command === "reset") {
+    await reset();
   } else {
-    console.log("Usage: smith init | smith status");
+    console.log("Usage: smith init | smith status | smith off | smith reset");
     process.exitCode = 1;
   }
 }

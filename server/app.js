@@ -107,6 +107,11 @@ function createApp() {
     return handlePreToolUse(tool_name, tool_input || {}, result, res);
   });
 
+  app.post("/shutdown", (req, res) => {
+    res.json({ stopped: true });
+    setTimeout(() => process.exit(0), 100);
+  });
+
   return app;
 }
 
