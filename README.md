@@ -42,9 +42,17 @@ A goal-fidelity watchdog for AI coding agents. Tell it your project's goal once,
 
 ## Install
 
+This package isn't published to the npm registry yet. Install it locally from source:
+
 ```bash
-npm install -g agent-smith
+git clone https://github.com/AnanthuNarashimman/agent-smith.git
+cd agent-smith
+npm install
+npm pack
+npm install -g ./agent-smith-0.1.0.tgz
 ```
+
+This puts a global `smith` command on your PATH, backed by this checkout.
 
 ## Execution
 
