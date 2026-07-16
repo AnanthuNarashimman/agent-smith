@@ -17,6 +17,8 @@ const { buildIntroBanner, pickNorthStarQuestion } = require("../lib/intro-banner
 const { clearProjectMemories } = require("../lib/reset");
 const { createChatTUI } = require("../lib/chat-tui");
 const { runGoalChat } = require("../lib/goal-chat");
+const { runArgueChat } = require("../lib/argue-chat");
+const { getMostRecentFlagged } = require("../lib/decision-log");
 
 async function requireSupermemory() {
   const reachable = await checkSupermemoryReachable();
@@ -143,6 +145,52 @@ async function status() {
   }
 }
 
+async function argue() {
+  await requireSupermemory();
+
+  const containerTag = getContainerTag();
+  const client = getClient();
+
+  console.log(`containerTag: ${containerTag}`);
+
+  const providerConfig = readConfig();
+  if (!providerConfig || !PROVIDERS[providerConfig.provider]) {
+    console.log("\nNo LLM provider configured yet. Run `smith init` first.");
+    process.exitCode = 1;
+    return;
+  }
+
+  const currentGoal = await findGoal(client, containerTag);
+  if (!currentGoal) {
+    console.log("\nNo goal set for this project yet. Run `smith init` first.");
+    process.exitCode = 1;
+    return;
+  }
+
+  const flaggedContext = await getMostRecentFlagged(client, containerTag);
+
+  const tui = createChatTUI();
+  const result = await runArgueChat({
+    client,
+    containerTag,
+    config: providerConfig,
+    tui,
+    currentGoal: currentGoal.memory,
+    flaggedContext,
+  });
+  tui.destroy();
+
+  if (result.cancelled) {
+    console.log("\nNothing changed.");
+    return;
+  }
+
+  console.log(`\nGoal is now: "${result.goal}"`);
+  if (result.forced) {
+    console.log("This was forced through without convincing Smith — logged as an override, your Consistency Score will reflect it.");
+  }
+}
+
 async function off() {
   const result = await stopServer();
   console.log(result.stopped ? `Agent Smith server on port ${result.port} stopped.` : `No Agent Smith server was running on port ${result.port}.`);
@@ -182,8 +230,10 @@ async function main() {
     await off();
   } else if (command === "reset") {
     await reset();
+  } else if (command === "argue") {
+    await argue();
   } else {
-    console.log("Usage: smith init | smith status | smith off | smith reset");
+    console.log("Usage: smith init | smith status | smith argue | smith off | smith reset");
     process.exitCode = 1;
   }
 }
