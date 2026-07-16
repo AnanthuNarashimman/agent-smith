@@ -1,5 +1,13 @@
 # Agent Smith
 
+[![Node.js](https://img.shields.io/badge/node-%3E%3D18-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![Claude Code](https://img.shields.io/badge/works%20with-Claude%20Code-D97757)](https://claude.com/claude-code)
+[![Supermemory Local](https://img.shields.io/badge/built%20for-Supermemory%20Local%20Hackathon-6E56CF)](https://supermemory.ai)
+[![Express](https://img.shields.io/badge/server-Express-000000?logo=express&logoColor=white)](https://expressjs.com/)
+![LLM Providers](https://img.shields.io/badge/LLM-Groq%20%7C%20OpenAI%20%7C%20Anthropic%20%7C%20Gemini-orange)
+![npm](https://img.shields.io/badge/npm-not%20published-lightgrey)
+[![License](https://img.shields.io/badge/license-ISC-blue)](#license)
+
 A goal-fidelity watchdog for AI coding agents. Tell it your project's goal once, and it watches Claude Code's tool calls, interrupting in character when you're about to quietly contradict yourself.
 
 ```
@@ -36,6 +44,54 @@ A goal-fidelity watchdog for AI coding agents. Tell it your project's goal once,
 From then on, a local server checks risky Bash commands and file edits against that goal before Claude Code runs them. If an action looks like it contradicts what you said you wanted (adding Redis to a "ship v1 fast, no over-engineering" project, for example), Claude Code shows you a permission prompt with Smith's reasoning attached. You always make the final call. Every decision is logged, and a running **Consistency Score** tracks how often you've kept to your own word.
 
 If you think a flag is wrong, or your goal has genuinely changed, `smith argue` opens the same kind of chat scoped to that specific decision. Make your case: if Smith is convinced, it drafts an updated goal for you to confirm. You can also force a goal change through without convincing it, but that gets logged as an override and costs you on the Consistency Score, since pushing a change through unconvinced is itself a sign the original goal wasn't thought through.
+
+## Architecture
+
+```mermaid
+flowchart TB
+    CC["Claude Code session"]
+
+    subgraph CLI["smith CLI"]
+        Init["smith init"]
+        Argue["smith argue"]
+        Status["smith status"]
+    end
+
+    subgraph Server["Agent Smith server, port 6789"]
+        Filter["Static filter"]
+        Judge["LLM judge"]
+    end
+
+    subgraph Memory["Supermemory Local, port 6767"]
+        Goal[("Goal document")]
+        Chat[("Ephemeral chat turns")]
+        Decisions[("Decision log")]
+        Overrides[("Override log")]
+    end
+
+    LLM["LLM provider: Groq, OpenAI, Anthropic, or Gemini"]
+
+    CC -->|"PreToolUse / PostToolUse hook"| Filter
+    Filter -->|"matched a risky pattern"| Judge
+    Judge -->|"reads"| Goal
+    Judge -->|"does this contradict the goal?"| LLM
+    Judge -->|"logs verdict"| Decisions
+    Judge -->|"allow or ask"| CC
+
+    Init -->|"live goal-setting chat"| LLM
+    Init -->|"writes on confirm"| Goal
+    Init -->|"writes each turn"| Chat
+
+    Argue -->|"live chat, seeded with last flag"| LLM
+    Argue -->|"overwrites on confirm"| Goal
+    Argue -->|"forced change"| Overrides
+
+    Status --> Goal
+    Status --> Decisions
+    Status --> Overrides
+```
+
+Every ephemeral chat turn from `smith init` is written to Supermemory as it happens, purely so a crashed session can be recovered later. Once you confirm the goal, those turns are deleted and only the final goal document remains.
 
 ## Requirements
 
