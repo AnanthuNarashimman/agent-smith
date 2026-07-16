@@ -3,7 +3,6 @@ const readline = require("readline/promises");
 const {
   getContainerTag,
   getClient,
-  pollDocumentDone,
   findGoal,
   checkSupermemoryReachable,
   BASE_URL,
@@ -16,6 +15,8 @@ const { ensureSkillConfigured } = require("../lib/skill-setup");
 const { buildScoreBanner } = require("../lib/status-banner");
 const { buildIntroBanner, pickNorthStarQuestion } = require("../lib/intro-banner");
 const { clearProjectMemories } = require("../lib/reset");
+const { createChatTUI } = require("../lib/chat-tui");
+const { runGoalChat } = require("../lib/goal-chat");
 
 async function requireSupermemory() {
   const reachable = await checkSupermemoryReachable();
@@ -63,7 +64,7 @@ async function init() {
   console.log(`containerTag: ${containerTag}`);
 
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-  await ensureProviderConfig(rl);
+  const providerConfig = await ensureProviderConfig(rl);
 
   const hooksResult = ensureHooksConfigured();
   console.log(hooksResult.changed ? "\nClaude Code hooks configured." : "\nClaude Code hooks already configured.");
@@ -87,35 +88,22 @@ async function init() {
     return;
   }
 
-  console.log("\n" + buildIntroBanner());
-
-  const question = pickNorthStarQuestion();
-  const goal = (await rl.question(`\n${question}\n> `)).trim();
+  console.log("\n" + buildIntroBanner() + "\n\n");
   rl.close();
 
-  if (!goal) {
-    console.log("No goal entered, aborting.");
+  const firstQuestion = pickNorthStarQuestion();
+
+  const tui = createChatTUI();
+  const result = await runGoalChat({ client, containerTag, config: providerConfig, tui, firstQuestion });
+  tui.destroy();
+
+  if (result.cancelled) {
+    console.log("\nGoal setup cancelled, nothing was stored.");
     process.exitCode = 1;
     return;
   }
 
-  console.log("\nWriting goal to Supermemory...");
-  const added = await client.documents.add({
-    content: goal,
-    containerTag,
-    metadata: { type: "goal", pinned: true },
-  });
-
-  console.log(`Queued as document ${added.id}, waiting for it to finish indexing...`);
-  await pollDocumentDone(client, added.id);
-
-  console.log("Reading it back to confirm...");
-  const confirmed = await findGoal(client, containerTag);
-  if (!confirmed) {
-    throw new Error("Goal was written but could not be read back via search.");
-  }
-
-  console.log(`\nGoal set: "${confirmed.memory}"`);
+  console.log(`\nGoal set: "${result.goal}"`);
   console.log("smith init complete.");
 }
 
